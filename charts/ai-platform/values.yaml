@@ -1,0 +1,44 @@
+# Default values for ai-platform.
+replicaCount: 2
+
+image:
+  backend:
+    repository: aws_account_id.dkr.ecr.us-east-1.amazonaws.com/ai-selfhealing-backend
+    pullPolicy: IfNotPresent
+    tag: "latest"
+  frontend:
+    repository: aws_account_id.dkr.ecr.us-east-1.amazonaws.com/ai-selfhealing-frontend
+    pullPolicy: IfNotPresent
+    tag: "latest"
+
+service:
+  backend:
+    type: ClusterIP
+    port: 8080
+  frontend:
+    type: LoadBalancer
+    port: 80
+
+# Database configuration
+database:
+  host: "ai-selfhealing-db.cluster-xyz.us-east-1.rds.amazonaws.com"
+  name: "voiture_db"
+  user: "admin"
+
+# Resource limits for pods (Optimized for dev/SRE demo)
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+# Probes for reliability
+probes:
+  liveness:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readiness:
+    initialDelaySeconds: 15
+    periodSeconds: 10
