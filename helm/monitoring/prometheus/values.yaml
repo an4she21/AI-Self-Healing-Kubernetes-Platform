@@ -41,16 +41,16 @@ prometheus:
   pushgateway:
     enabled: false
 
-  serverFiles:
-    # Prometheus scrape config + AI Agent metrics job
-    prometheus.yml:
-      scrape_configs:
-        - job_name: ai-agent
-          scrape_interval: 30s
-          metrics_path: /metrics
-          static_configs:
-            - targets: ['ai-agent.ai-selfhealing.internal']
+  # Use extraScrapeConfigs to ADD the AI Agent job WITHOUT overwriting
+  # the default subchart scrape configs (kube-state-metrics, node-exporter, etc.)
+  extraScrapeConfigs: |
+    - job_name: ai-agent
+      scrape_interval: 30s
+      metrics_path: /metrics
+      static_configs:
+        - targets: ['ai-agent.ai-selfhealing.internal']
 
+  serverFiles:
     # Alerting rules for EKS pod health
     alerting_rules.yml:
       groups:
