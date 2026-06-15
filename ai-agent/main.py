@@ -376,98 +376,9 @@ def execute_action(action_id: ActionId, alert: AlertDetail) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Prometheus /metrics endpoint
+# /metrics endpoint is defined AFTER app = FastAPI() below (line ~669)
+# because @app.get() requires 'app' to exist first.
 # ---------------------------------------------------------------------------
-
-@app.get("/metrics", response_class=PlainTextResponse)
-def metrics():
-    """Prometheus-compatible metrics endpoint for Grafana dashboards."""
-    uptime = round(time.monotonic() - start_time, 1)
-    now_ts = time.time()
-
-    # Check EKS connection for gauge
-    try:
-        eks_connected = 1 if get_observer().check_connection() else 0
-    except Exception:
-        eks_connected = 0
-
-    # Average NIM latency
-    avg_latency = (
-        metrics_state["nim_api_latency_seconds_sum"]
-        / metrics_state["nim_api_latency_seconds_count"]
-        if metrics_state["nim_api_latency_seconds_count"] > 0
-        else 0.0
-    )
-
-    lines = [
-        "# HELP ai_agent_alerts_processed_total Total alerts processed",
-        "# TYPE ai_agent_alerts_processed_total counter",
-        f'ai_agent_alerts_processed_total {stats["alerts_processed"]}',
-        "",
-        "# HELP ai_agent_actions_taken_total Total remediation actions executed",
-        "# TYPE ai_agent_actions_taken_total counter",
-        f'ai_agent_actions_taken_total {stats["actions_taken"]}',
-        "",
-        "# HELP ai_agent_actions_skipped_total Total actions skipped (cooldown/low confidence)",
-        "# TYPE ai_agent_actions_skipped_total counter",
-        f'ai_agent_actions_skipped_total {stats["actions_skipped"]}',
-        "",
-        "# HELP ai_agent_eks_connected Whether AI Agent is connected to EKS (1=yes 0=no)",
-        "# TYPE ai_agent_eks_connected gauge",
-        f"ai_agent_eks_connected {eks_connected}",
-        "",
-        "# HELP ai_agent_uptime_seconds Agent uptime in seconds",
-        "# TYPE ai_agent_uptime_seconds gauge",
-        f"ai_agent_uptime_seconds {uptime}",
-        "",
-        "# HELP ai_agent_nim_api_calls_total Total NVIDIA NIM API calls",
-        "# TYPE ai_agent_nim_api_calls_total counter",
-        f'ai_agent_nim_api_calls_total {metrics_state["nim_api_calls_total"]}',
-        "",
-        "# HELP ai_agent_nim_api_failures_total Total NVIDIA NIM API call failures",
-        "# TYPE ai_agent_nim_api_failures_total counter",
-        f'ai_agent_nim_api_failures_total {metrics_state["nim_api_failures_total"]}',
-        "",
-        "# HELP ai_agent_nim_api_latency_avg_seconds Average NIM API latency in seconds",
-        "# TYPE ai_agent_nim_api_latency_avg_seconds gauge",
-        f"ai_agent_nim_api_latency_avg_seconds {round(avg_latency, 3)}",
-        "",
-        "# HELP ai_agent_eks_restarts_total Total RESTART_POD actions executed",
-        "# TYPE ai_agent_eks_restarts_total counter",
-        f'ai_agent_eks_restarts_total {metrics_state["eks_restarts_total"]}',
-        "",
-        "# HELP ai_agent_eks_scale_ups_total Total SCALE_UP actions executed",
-        "# TYPE ai_agent_eks_scale_ups_total counter",
-        f'ai_agent_eks_scale_ups_total {metrics_state["eks_scale_ups_total"]}',
-        "",
-        "# HELP ai_agent_eks_investigates_total Total INVESTIGATE actions executed",
-        "# TYPE ai_agent_eks_investigates_total counter",
-        f'ai_agent_eks_investigates_total {metrics_state["eks_investigates_total"]}',
-        "",
-        "# HELP ai_agent_manual_escalations_total Total MANUAL escalations",
-        "# TYPE ai_agent_manual_escalations_total counter",
-        f'ai_agent_manual_escalations_total {metrics_state["manual_escalations_total"]}',
-        "",
-        "# HELP ai_agent_cooldown_skips_total Total alerts skipped due to cooldown",
-        "# TYPE ai_agent_cooldown_skips_total counter",
-        f'ai_agent_cooldown_skips_total {metrics_state["cooldown_skips_total"]}',
-        "",
-        "# HELP ai_agent_cooldown_cache_size Number of active cooldown entries",
-        "# TYPE ai_agent_cooldown_cache_size gauge",
-        f"ai_agent_cooldown_cache_size {len(cooldown_cache)}",
-    ]
-
-    # Per-confidence from history
-    if remediation_history:
-        latest = remediation_history[-1]
-        lines.extend([
-            "",
-            "# HELP ai_agent_last_confidence_score Confidence score of the last remediation decision",
-            "# TYPE ai_agent_last_confidence_score gauge",
-            f"ai_agent_last_confidence_score {latest.get('confidence', 0.0)}",
-        ])
-
-    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -853,6 +764,96 @@ def get_stats():
         "cooldown_size": len(cooldown_cache),
         "uptime_seconds": round(time.monotonic() - start_time, 1),
     }
+
+
+@app.get("/metrics", response_class=PlainTextResponse)
+def metrics():
+    """Prometheus-compatible metrics endpoint for Grafana dashboards."""
+    uptime = round(time.monotonic() - start_time, 1)
+
+    # Check EKS connection for gauge
+    try:
+        eks_connected = 1 if get_observer().check_connection() else 0
+    except Exception:
+        eks_connected = 0
+
+    # Average NIM latency
+    avg_latency = (
+        metrics_state["nim_api_latency_seconds_sum"]
+        / metrics_state["nim_api_latency_seconds_count"]
+        if metrics_state["nim_api_latency_seconds_count"] > 0
+        else 0.0
+    )
+
+    lines = [
+        "# HELP ai_agent_alerts_processed_total Total alerts processed",
+        "# TYPE ai_agent_alerts_processed_total counter",
+        f'ai_agent_alerts_processed_total {stats["alerts_processed"]}',
+        "",
+        "# HELP ai_agent_actions_taken_total Total remediation actions executed",
+        "# TYPE ai_agent_actions_taken_total counter",
+        f'ai_agent_actions_taken_total {stats["actions_taken"]}',
+        "",
+        "# HELP ai_agent_actions_skipped_total Total actions skipped (cooldown/low confidence)",
+        "# TYPE ai_agent_actions_skipped_total counter",
+        f'ai_agent_actions_skipped_total {stats["actions_skipped"]}',
+        "",
+        "# HELP ai_agent_eks_connected Whether AI Agent is connected to EKS (1=yes 0=no)",
+        "# TYPE ai_agent_eks_connected gauge",
+        f"ai_agent_eks_connected {eks_connected}",
+        "",
+        "# HELP ai_agent_uptime_seconds Agent uptime in seconds",
+        "# TYPE ai_agent_uptime_seconds gauge",
+        f"ai_agent_uptime_seconds {uptime}",
+        "",
+        "# HELP ai_agent_nim_api_calls_total Total NVIDIA NIM API calls",
+        "# TYPE ai_agent_nim_api_calls_total counter",
+        f'ai_agent_nim_api_calls_total {metrics_state["nim_api_calls_total"]}',
+        "",
+        "# HELP ai_agent_nim_api_failures_total Total NVIDIA NIM API call failures",
+        "# TYPE ai_agent_nim_api_failures_total counter",
+        f'ai_agent_nim_api_failures_total {metrics_state["nim_api_failures_total"]}',
+        "",
+        "# HELP ai_agent_nim_api_latency_avg_seconds Average NIM API latency in seconds",
+        "# TYPE ai_agent_nim_api_latency_avg_seconds gauge",
+        f"ai_agent_nim_api_latency_avg_seconds {round(avg_latency, 3)}",
+        "",
+        "# HELP ai_agent_eks_restarts_total Total RESTART_POD actions executed",
+        "# TYPE ai_agent_eks_restarts_total counter",
+        f'ai_agent_eks_restarts_total {metrics_state["eks_restarts_total"]}',
+        "",
+        "# HELP ai_agent_eks_scale_ups_total Total SCALE_UP actions executed",
+        "# TYPE ai_agent_eks_scale_ups_total counter",
+        f'ai_agent_eks_scale_ups_total {metrics_state["eks_scale_ups_total"]}',
+        "",
+        "# HELP ai_agent_eks_investigates_total Total INVESTIGATE actions executed",
+        "# TYPE ai_agent_eks_investigates_total counter",
+        f'ai_agent_eks_investigates_total {metrics_state["eks_investigates_total"]}',
+        "",
+        "# HELP ai_agent_manual_escalations_total Total MANUAL escalations",
+        "# TYPE ai_agent_manual_escalations_total counter",
+        f'ai_agent_manual_escalations_total {metrics_state["manual_escalations_total"]}',
+        "",
+        "# HELP ai_agent_cooldown_skips_total Total alerts skipped due to cooldown",
+        "# TYPE ai_agent_cooldown_skips_total counter",
+        f'ai_agent_cooldown_skips_total {metrics_state["cooldown_skips_total"]}',
+        "",
+        "# HELP ai_agent_cooldown_cache_size Number of active cooldown entries",
+        "# TYPE ai_agent_cooldown_cache_size gauge",
+        f"ai_agent_cooldown_cache_size {len(cooldown_cache)}",
+    ]
+
+    # Per-confidence from history
+    if remediation_history:
+        latest = remediation_history[-1]
+        lines.extend([
+            "",
+            "# HELP ai_agent_last_confidence_score Confidence score of the last remediation decision",
+            "# TYPE ai_agent_last_confidence_score gauge",
+            f"ai_agent_last_confidence_score {latest.get('confidence', 0.0)}",
+        ])
+
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
